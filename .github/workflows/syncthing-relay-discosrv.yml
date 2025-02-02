@@ -1,0 +1,68 @@
+name: syncthing-relay-discosrv
+
+on:
+  push:
+    paths:
+    - 'syncthing-relay-discosrv/Dockerfile'
+    - 'syncthing-relay-discosrv/root/**'
+  workflow_dispatch:
+
+jobs:
+  job1:
+    name: buildx tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: 'Set env'
+        run: |
+          echo "RELAYSRV_VER=$(echo `grep -n "syncthing/relaysrv" syncthing-relay-discosrv/Dockerfile`|awk -F: '{print $3}'|tr -s ' '|cut -d' ' -f1)" >> $GITHUB_ENV
+          echo "DISCOSRV_VER=$(echo `grep -n "syncthing/discosrv" syncthing-relay-discosrv/Dockerfile`|awk -F: '{print $3}'|tr -s ' '|cut -d' ' -f1)" >> $GITHUB_ENV
+
+      - name: Set up QEMU
+        id: qemu
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          version: latest
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          context: ./syncthing-relay-discosrv
+          file: ./syncthing-relay-discosrv/Dockerfile
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: true
+          tags: |
+            johngong/syncthing-relay-discosrv:latest
+            johngong/syncthing-relay-discosrv:${{ env.RELAYSRV_VER }}-${{ env.DISCOSRV_VER }}
+            ghcr.io/gshang2017/syncthing-relay-discosrv:latest
+            ghcr.io/gshang2017/syncthing-relay-discosrv:${{ env.RELAYSRV_VER }}-${{ env.DISCOSRV_VER }}
+
+      - name: Docker Hub Description
+        uses: peter-evans/dockerhub-description@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          repository: johngong/syncthing-relay-discosrv
+          short-description: relaysrv:${{ env.RELAYSRV_VER }},discosrv:${{ env.DISCOSRV_VER }},syncthing同步中继与发现服务器
+          readme-filepath: ./syncthing-relay-discosrv/README.md

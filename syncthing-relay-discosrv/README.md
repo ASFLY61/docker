@@ -1,21 +1,28 @@
 ## 群晖nas自用
 
+### GitHub:
+
+[https://github.com/gshang2017/docker](https://github.com/gshang2017/docker)
+
 ### 感谢以下项目:
 
-[https://github.com/syncthing](https://github.com/syncthing "https://github.com/syncthing")
+[https://github.com/syncthing](https://github.com/syncthing)
 
 ### 版本：
 
 |名称|版本|说明|
 |:-|:-|:-|
-|relaysrv|1.15.0|amd64;arm64v8;arm32v7|
-|discosrv|1.18.1|amd64;arm64v8;arm32v7|
+|strelaysrv|1.29.2|amd64;arm64v8;arm32v7|
+|stdiscosrv|1.29.2|amd64;arm64v8;arm32v7|
 
 ### docker命令行设置：
 
 1. 下载镜像
 
-       docker pull  johngong/syncthing-relay-discosrv:latest
+    |镜像源|命令|
+    |:-|:-|
+    |DockerHub|docker pull johngong/syncthing-relay-discosrv:latest|
+    |GitHub|docker pull ghcr.io/gshang2017/syncthing-relay-discosrv:latest|
 
 2. 创建syncthing-relay-discosrv容器
 
@@ -54,6 +61,8 @@
 | `-v /配置文件位置:/config` |可不设置，/config/discosrvdb为同步发现服务器数据库位置；/config/certs为服务器证书位置,设置后证书不变,重装后 device ID不变|
 | `-e UID=1000` |uid设置,默认为1000|
 | `-e GID=1000` |gid设置,默认为1000|
+| `-e ENABLE_STDISCOSRV=true` |(true\|false)设定开启发现服务器，默认开启|
+| `-e ENABLE_STRELAYSRV=true` |(true\|false)设定开启中继服务器，默认开启|
 | `-e GLOBAL_RATE=100000000` |全局速率限制 单位为bytes/s|
 | `-e PER_SESSION_RATE=10000000` | 每个会话速率限制 单位为bytes/s|
 | `-e MESSAGE_TIMEOUT=1m30s` |等待相关消息到达的最长时间|
@@ -61,8 +70,8 @@
 | `-e PING_INTERVAL=1m30s` | ping的发送频率|
 | `-e PROVIDED_BY="strelaysrv"` |中继提供者|
 | `-e POOLS=` |中继服务器地址列表,如果不填则为私有中继|
-| `-e DISCO_OTHER_OPTION=` |同步发现服务器其它自添加选项,`-debug -http -listen -metrics -listen -replicate -replication-listen`，选项说明详见:[https://docs.syncthing.net/users/stdiscosrv.html](https://docs.syncthing.net/users/stdiscosrv.html "https://docs.syncthing.net/users/stdiscosrv.html")|
-| `-e RELAY_OTHER_OPTION=` |同步中继服务器其它自添加选项,`-debug -ext-address -listen -nat -nat-lease -nat-renewal -nat-timeout -protocol -status-srv`，选项说明详见:[https://docs.syncthing.net/users/strelaysrv.html](https://docs.syncthing.net/users/strelaysrv.html "https://docs.syncthing.net/users/strelaysrv.html")|
+| `-e DISCO_OTHER_OPTION=` |同步发现服务器其它自添加选项,`-debug -http -listen -metrics -listen -replicate -replication-listen`，选项说明详见:[https://docs.syncthing.net/users/stdiscosrv.html](https://docs.syncthing.net/users/stdiscosrv.html)|
+| `-e RELAY_OTHER_OPTION=` |同步中继服务器其它自添加选项,`-debug -ext-address -listen -nat -nat-lease -nat-renewal -nat-timeout -protocol -status-srv`，选项说明详见:[https://docs.syncthing.net/users/strelaysrv.html](https://docs.syncthing.net/users/strelaysrv.html)|
 
 ### 群晖docker设置：
 
@@ -86,6 +95,8 @@
 |:-|:-|
 | `UID=1000` |uid设置,默认为1000|
 | `GID=1000` |gid设置,默认为1000|
+| `ENABLE_STDISCOSRV=true` |(true\|false)设定开启发现服务器，默认开启|
+| `ENABLE_STRELAYSRV=true` |(true\|false)设定开启中继服务器，默认开启|
 | `GLOBAL_RATE=100000000` |全局速率限制 单位为bytes/s|
 | `PER_SESSION_RATE=10000000` | 每个会话速率限制 单位为bytes/s|
 | `MESSAGE_TIMEOUT=1m30s` |等待相关消息到达的最长时间|
@@ -93,8 +104,8 @@
 | `PING_INTERVAL=1m30s` | ping的发送频率|
 | `PROVIDED_BY="strelaysrv"` |中继提供者|
 | `POOLS=` |中继服务器地址列表,如果不填则为私有中继|
-| `DISCO_OTHER_OPTION=` |同步发现服务器其它自添加选项,`-debug -http -listen -metrics -listen -replicate -replication-listen`，选项说明详见:[https://docs.syncthing.net/users/stdiscosrv.html](https://docs.syncthing.net/users/stdiscosrv.html "https://docs.syncthing.net/users/stdiscosrv.html")|
-| `RELAY_OTHER_OPTION=` |同步中继服务器其它自添加选项,`-debug -ext-address -listen -nat -nat-lease -nat-renewal -nat-timeout -protocol -status-srv`，选项说明详见:[https://docs.syncthing.net/users/strelaysrv.html](https://docs.syncthing.net/users/strelaysrv.html "https://docs.syncthing.net/users/strelaysrv.html")|
+| `DISCO_OTHER_OPTION=` |同步发现服务器其它自添加选项,`-debug -http -listen -metrics -listen -replicate -replication-listen`，选项说明详见:[https://docs.syncthing.net/users/stdiscosrv.html](https://docs.syncthing.net/users/stdiscosrv.html)|
+| `RELAY_OTHER_OPTION=` |同步中继服务器其它自添加选项,`-debug -ext-address -listen -nat -nat-lease -nat-renewal -nat-timeout -protocol -status-srv`，选项说明详见:[https://docs.syncthing.net/users/strelaysrv.html](https://docs.syncthing.net/users/strelaysrv.html")|
 
 ### 客户端配置：
 
@@ -106,14 +117,14 @@
 
 * 界面- 操作-设置-连接
 
-1. 协议监听地址:[ relay://ip或域名:本地端口1/?id=deviceID]( relay://ip或域名:本地端口1/?id=deviceID " relay://ip或域名:本地端口1/?id=deviceID"),例:[relay://private-relay-1.example.com:22067/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM](relay://private-relay-1.example.com:22067/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM "relay://private-relay-1.example.com:22067/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM")
+1. 协议监听地址:[ relay://ip或域名:本地端口1/?id=deviceID]( relay://ip或域名:本地端口1/?id=deviceID),例:[relay://private-relay-1.example.com:22067/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM](relay://private-relay-1.example.com:22067/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM)
 2. 开启（启用NAT遍历 全球发现[自用可不开启] 本地发现 开启中继）
-3. 全球发现服务器:[https://ip或域名:本地端口3/?id=deviceID](https://ip或域名:本地端口3/?id=deviceID "https://ip或域名:本地端口3/?id=deviceID"),例:[https://disco.example.com:8443/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM](https://disco.example.com:8443/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM "https://disco.example.com:8443/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM")
+3. 全球发现服务器:[https://ip或域名:本地端口3/?id=deviceID](https://ip或域名:本地端口3/?id=deviceID),例:[https://disco.example.com:8443/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM](https://disco.example.com:8443/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM)
 
 *  界面- 远程设备
 
-1. 具体连接设备-选项-高级-地址列表:[relay://private-relay-1.example.com:22067/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM](relay://private-relay-1.example.com:22067/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM "relay://private-relay-1.example.com:22067/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM")
+1. 具体连接设备-选项-高级-地址列表:[relay://private-relay-1.example.com:22067/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM](relay://private-relay-1.example.com:22067/?id=ITZRNXE-YNROGBZ-HXTH5P7-VK5NYE5-QHRQGE2-7JQ6VNJ-KZUEDIU-5PPR5AM)
 
 ### 其它：
 
-详见[https://docs.syncthing.net/users/](https://docs.syncthing.net/users/ "https://docs.syncthing.net/users/")
+详见[https://docs.syncthing.net/users/](https://docs.syncthing.net/users/)
