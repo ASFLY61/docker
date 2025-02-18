@@ -1,13 +1,19 @@
 ## 群晖nas自用：
 
+### GitHub:
+
+[https://github.com/gshang2017/docker](https://github.com/gshang2017/docker)
+
 ### 感谢以下项目:
 
 [https://github.com/jlesage/docker-baseimage-gui](https://github.com/jlesage/docker-baseimage-gui "https://github.com/jlesage/docker-baseimage-gui")                                       
 
-
 ### 版本：
 
-   baidunetdisk:3.5.0 (amd64)
+|名称|版本|说明|
+|:-|:-|:-|
+|baidunetdisk|4.17.7|amd64|
+|baidunetdisk|4.17.7|arm64|
 
 #### 注意：
 
@@ -19,22 +25,21 @@
 
 1. 下载镜像
 
-       docker pull  johngong/baidunetdisk:latest
+    |镜像源|命令|
+    |:-|:-|
+    |DockerHub|docker pull johngong/baidunetdisk:latest|
+    |GitHub|docker pull ghcr.io/gshang2017/baidunetdisk:latest|
 
+2. 创建baidunetdisk容器
 
-2. 创建 baidunetdisk容器
-
-        docker create  \
-           --name=baidunetdisk  \
-           -p 5800:5800  \
-           -p 5900:5900  \
-           -v /配置文件位置:/config  \
-           -v /下载位置:/config/baidunetdiskdownload  \
-           --restart unless-stopped  \
+        docker create \
+           --name=baidunetdisk \
+           -p 5800:5800 \
+           -p 5900:5900 \
+           -v /配置文件位置:/config \
+           -v /下载位置:/config/baidunetdiskdownload \
+           --restart unless-stopped \
            johngong/baidunetdisk:latest
-
-
-
 
 3. 运行
 
@@ -46,7 +51,7 @@
 
 5. 删除容器
 
-       docker rm  baidunetdisk
+       docker rm baidunetdisk
 
 6. 删除镜像
 
@@ -62,6 +67,10 @@
 | `-v /配置文件位置:/config` |baidunetdisk配置文件位置|
 | `-v /下载位置:/config/baidunetdiskdownload` |baidunetdisk下载路径(3.3.2需手动设置)|
 | `-e VNC_PASSWORD=VNC密码` |VNC密码|
+| `-e USER_ID=1000` |uid设置,默认为1000|
+| `-e GROUP_ID=1000` |gid设置,默认为1000|
+| `-e NOVNC_LANGUAGE="zh_Hans"` |(zh_Hans\|en)设定novnc语言,默认为中文|
+
 
 更多参数设置详见:[https://registry.hub.docker.com/r/jlesage/baseimage-gui](https://registry.hub.docker.com/r/jlesage/baseimage-gui "https://registry.hub.docker.com/r/jlesage/baseimage-gui")                                     
 
@@ -87,7 +96,6 @@
 |参数|说明|
 |:-|:-|
 | `VNC_PASSWORD=VNC密码` |VNC密码|
-
-### 注意：
-
-1. 剪贴板无法使用中文
+| `USER_ID=1000` |uid设置,默认为1000|
+| `GROUP_ID=1000` |gid设置,默认为1000|
+| `NOVNC_LANGUAGE="zh_Hans"` |(zh_Hans\|en)设定novnc语言,默认为中文|

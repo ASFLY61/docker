@@ -1,41 +1,50 @@
 ## 群晖nas自用
 
+### GitHub:
+
+[https://github.com/gshang2017/docker](https://github.com/gshang2017/docker)
+
 ### 感谢以下项目:
 
 [https://github.com/dae/anki](https://github.com/dae/anki "https://github.com/dae/anki")    
-[https://github.com/ankicommunity/anki-sync-server](https://github.com/ankicommunity/anki-sync-server "https://github.com/ankicommunity/anki-sync-server")   
-[https://github.com/tsudoko/anki-sync-server](https://github.com/tsudoko/anki-sync-server "https://github.com/tsudoko/anki-sync-server")
 
 ### 版本：
 
 |名称|版本|说明|
 |:-|:-|:-|
-|Anki-sync-server|v_e719131(ankicommunity)|amd64;arm64v8,目前支持的版本范围是Anki:2.1.43、AnkiDroid:2.15.6,其它自测。|
-|Anki-sync-server|2.1.0(tsudoko)|amd64;arm64v8;arm32v7,目前支持的版本范围是Anki:2.0.27~2.1.15(2.1.9除外)、AnkiDroid:2.14.6,其它自测。|
+|Anki-sync-server|25.02|amd64;arm64v8|
 
 ### 注意:
 
-* 从2.1.0升级安装ankicommunity版需移除配置文件夹内ankisyncd.conf文件或者修改ankisyncd.conf里端口号为27702。
-
-* 升级安装需移除配置文件夹内auth.db和session.db文件,并暂时重命名collections文件夹内的用户名文件夹。等程序重建auth.db后，即可将collections内重命名后的文件夹改为用户名。
+* 2.1.65使用anki官方内置同步服务器。
+* ankicommunity版设置 https://github.com/gshang2017/docker/blob/0bbdc35f73d535be477fc64f8490ac50e56422b9/anki-sync-server/README.md
 
 ### docker命令行设置：
 
+* 变量名变更
+
+    |版本|2.4.0|2.3.0及以前|
+    |:-:|:-|:-|
+    |1|ANKI_SYNC_SERVER_USER|USER|
+    |2|ANKI_SYNC_SERVER_PASSWORD|PASSWORD|
+
 1. 下载镜像
 
-       docker pull   johngong/anki-sync-server:latest
+    |镜像源|命令|
+    |:-|:-|
+    |DockerHub|docker pull johngong/anki-sync-server:latest|
+    |GitHub|docker pull ghcr.io/gshang2017/anki-sync-server:latest|
 
 2. 创建anki容器
 
-        docker create  \
-           --name=anki  \
-           -p 27701:27701  \
-           -v /配置文件位置:/config  \
-           -e USER=***  \
-           -e PASSWORD=***  \
-           -e UID=1000  \
-           -e GID=1000  \
-           --restart unless-stopped  \
+        docker create \
+           --name=anki \
+           -p 8080:8080 \
+           -v /同步文件位置:/ankisyncdir \
+           -e SYNC_USER1=user:pass\
+           -e UID=1000 \
+           -e GID=1000 \
+           --restart unless-stopped \
            johngong/anki-sync-server:latest
 
 3. 运行
@@ -48,23 +57,27 @@
 
 5. 删除容器
 
-       docker rm  anki
+       docker rm anki
 
 6. 删除镜像
 
-       docker image rm  johngong/anki-sync-server:latest
+       docker image rm johngong/anki-sync-server:latest
 
 ### 变量:
 
 |参数|说明|
 |:-|:-|
 | `--name=anki` |容器名|
-| `-p 27701:27701` |anki-sync-server同步端口(2.1.0),新版为nginx端口|
-| `-v /配置文件位置:/config` |anki-sync-server配置位置文件|
-| `-e USER=` |anki-sync-server同步服务器用户名，建议用邮箱格式，例如：XXXXXXX@XX.com，不然android无法使用|
-| `-e PASSWORD=` |anki-sync-server同步服务器密码|
+| `-p 8080:8080` |anki-sync-server同步端口|
+| `-v /同步文件位置:/ankisyncdir` |anki-sync-server同步文件位置|
+| `-e TZ=Asia/Shanghai` |系统时区设置,默认为Asia/Shanghai|
+| `-e SYNC_USER1=user:pass` |anki-sync-server同步服务器用户名及密码，建议用邮箱格式，例如：example@domain.com:password，方便AnkiDroid使用,配置多用户SYNC_USER2，SYNC_USER3|
+| `-e SYNC_BASE=/ankisyncdir` |anki-sync-server同步文件位置，默认为/ankisyncdir|
 | `-e UID=1000` |uid设置,默认为1000|
 | `-e GID=1000` |gid设置,默认为1000|
+| `-e SYNC_PORT=8080` |anki-sync-server同步端口,默认8080|
+| `-e SYNC_HOST=0.0.0.0` |anki-sync-server同步服务器绑定到的主机，默认0.0.0.0|
+| `-e MAX_SYNC_PAYLOAD_MEGS=100` |anki-sync-server同步服务器上传限制设置，默认100(100M大小)|
 
 ### 群晖docker设置：
 
@@ -72,53 +85,43 @@
 
 |参数|说明|
 |:-|:-|
-| `本地文件夹1:/config` |anki-sync-server配置位置文件|
+| `本地文件夹1:/ankisyncdir` |anki-sync-server同步文件位置，默认为/ankisyncdir|
 
 2. 端口
 
 |参数|说明|
 |:-|:-|
-| `本地端口1:27701` |anki-sync-server同步端口(2.1.0),新版为nginx端口|
+| `本地端口1:8080` |anki-sync-server同步端口|
 
 3. 环境变量
 
 |参数|说明|
 |:-|:-|
-| `USER=` |anki-sync-server同步服务器用户名，建议用邮箱格式，例如：XXXXXXX@XX.com，不然android无法使用|
-| `PASSWORD=` |anki-sync-server同步服务器密码|
+| `TZ=Asia/Shanghai` |系统时区设置,默认为Asia/Shanghai|
+| `SYNC_USER1=user:pass` |anki-sync-server同步服务器用户名及密码，建议用邮箱格式，例如：example@domain.com:password，方便AnkiDroid使用,配置多用户SYNC_USER2，SYNC_USER3|
+| `SYNC_BASE=/ankisyncdir` |anki-sync-server同步文件位置，默认为/ankisyncdir|
 | `UID=1000` |uid设置,默认为1000|
 | `GID=1000` |gid设置,默认为1000|
+| `SYNC_PORT=8080` |anki-sync-server同步端口,默认8080|
+| `SYNC_HOST=0.0.0.0` |anki-sync-server同步服务器绑定到的主机，默认0.0.0.0|
+| `MAX_SYNC_PAYLOAD_MEGS=100` |anki-sync-server同步服务器上传限制设置，默认100(100M大小)|
 
 ### 客户端设置:
 
-* Android
+##### 注意:
 
-1. 设置-偏好设置-高级设置-自定义同步服务器-启用 使用自定义同步服务器选项
-2. 同步地址:[ip:本地端口1](ip:本地端口1 "ip:本地端口1");例:[http:/192.168.1.xxx:27701/](http:/192.168.1.xxx:27701/ "http:/192.168.1.xxx:27701/")
-3. 媒体文件同步地址:[ip:本地端口1/msync](ip:本地端口1/msync "ip:本地端口1/msync");例:[http:/192.168.1.xxx:27701/msync](http:/192.168.1.xxx:27701/msync "http:/192.168.1.xxx:27701/msync")
-4. 点击同步按钮,输入邮箱格式用户名以及密码,请忽略AnkiWeb这几个字。
+    * AnkiDroid自定义同步服务器需配置https，无法使用ip地址。请设置反向代理。
+
+* AnkiDroid
+
+1. 设置-同步-自定义同步服务器-同步地址 [http://ip:本地端口1](http://ip:本地端口1 "http://ip:本地端口1")
+2. 点击同步按钮,输入邮箱格式用户名以及密码
 
 * windows
 
-1. 找到C:\Users\用户名\AppData\Roaming\Anki2\addons21文件夹(具体位置请自己找) 在addons21下创建ankisyncd新目录,并创建文件\_\_init\_\_.py,在文件中写入以下代码(需改其中[http://ip:27701/](http://ip:27701/ "http://ip:27701/"))：
-
-    Anki 2.1:
-
-       import anki.sync
-       addr = "http://ip:27701/" # put your server address here
-       anki.sync.SYNC_BASE = addr + "%s"
-
-    Anki  ≥2.1.28:
-
-       import os
-       addr = "http://ip:27701/" # put your server address here
-       os.environ["SYNC_ENDPOINT"] = addr + "sync/"
-       os.environ["SYNC_ENDPOINT_MEDIA"] = addr + "msync/"
-
-2. 重启Anki
-3. 点击同步按钮,输入邮箱格式用户名以及密码,请忽略AnkiWeb这几个字。
+1. 工具-设置-网络-私人同步服务器 [http://ip:本地端口1](http://ip:本地端口1 "http://ip:本地端口1")
+2. 点击同步按钮,输入邮箱格式用户名以及密码
 
 ### 设置详见:
 
-[https://github.com/ankicommunity/anki-sync-server/blob/develop/README.md](https://github.com/ankicommunity/anki-sync-server/blob/develop/README.md "https://github.com/ankicommunity/anki-sync-server/blob/develop/README.md")   
-[https://github.com/tsudoko/anki-sync-server/blob/master/README.md](https://github.com/tsudoko/anki-sync-server/blob/master/README.md "https://github.com/tsudoko/anki-sync-server/blob/master/README.md")
+[https://github.com/ankitects/anki-manual/blob/main/src/sync-server.md](https://github.com/ankitects/anki-manual/blob/main/src/sync-server.md "https://github.com/ankitects/anki-manual/blob/main/src/sync-server.md")
