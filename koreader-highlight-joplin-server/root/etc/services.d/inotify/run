@@ -1,0 +1,4 @@
+#! /usr/bin/with-contenv bash
+
+# 启动inotify
+exec s6-setuidgid koreader bash /usr/local/joplin/inotify.sh

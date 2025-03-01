@@ -1,77 +1,130 @@
-FROM cthulhoo/ttrss-fpm-pgsql-static:21.10-9714c4fbc  as ttrss-src
-FROM postgres:12.0-alpine
+FROM node:18.20-alpine3.21 AS mercury-parser-api-build
 
-ARG  S6_VER=2.2.0.3
-
-ENV  UID=1000
-ENV  GID=1000
-ENV  POSTGRES_DB=ttrss
-ENV  POSTGRES_USER=ttrss
-ENV  POSTGRES_PASSWORD=ttrss
-ENV  TTRSS_DB_NAME=ttrss
-ENV  TTRSS_DB_USER=ttrss
-ENV  TTRSS_DB_PASS=ttrss
-ENV  TTRSS_DB_TYPE=pgsql
-ENV  TTRSS_DB_PORT=5432
-ENV  TTRSS_DB_HOST=0.0.0.0
-ENV  TTRSS_SELF_URL_PATH=http://localhost:80/
-ENV  TTRSS_PHP_EXECUTABLE=/usr/bin/php8
-ENV  TTRSS_PLUGINS=auth_internal,fever,mercury_fulltext
-
-COPY  root  /
-COPY --from=ttrss-src  /src/tt-rss  /usr/local/tt-rss
-
-# install php tt-rss caddy git [npm nodejs]-mercury-parser-api
-RUN apk add --no-cache bash shadow git npm nodejs ca-certificates caddy clang llvm11 build-base dumb-init postgresql-client \
-	          php8 php8-fpm php8-pdo php8-gd php8-pgsql php8-pdo_pgsql php8-mbstring php8-intl php8-xml php8-curl php8-session \
-	          php8-dom php8-fileinfo php8-json php8-iconv php8-pcntl php8-posix php8-zip php8-openssl php8-pecl-xdebug \
-# install s6-overlay
-&&  if [ "$(uname -m)" = "x86_64" ];then s6_arch=amd64;elif [ "$(uname -m)" = "aarch64" ];then s6_arch=aarch64;elif [ "$(uname -m)" = "armv7l" ];then s6_arch=arm; fi  \
-&&  wget --no-check-certificate https://github.com/just-containers/s6-overlay/releases/download/v${S6_VER}/s6-overlay-${s6_arch}.tar.gz  \
-&&  tar -xvzf s6-overlay-${s6_arch}.tar.gz  \
+RUN apk update \
+&& apk upgrade \
+&& apk add --no-cache git python3 make \
 # install mercury-parser-api
+&& apk add --no-cache "gcc<14" "g++<14" --repository https://dl-cdn.alpinelinux.org/alpine/v3.20/main \
 && npm install --prefix /usr/local/mercury-parser-api git+https://github.com/HenryQW/mercury-parser-api.git \
+&& sed -i 's/env.PORT/env.MERCURY_PORT/' /usr/local/mercury-parser-api/node_modules/mercury-parser-api/config.js \
+# install OpenCC.henry.wang
+&& npm install --prefix /usr/local/OpenCC.henry.wang git+https://github.com/BYVoid/OpenCC.git \
+&& npm install --prefix /usr/local/OpenCC.henry.wang express \
+&& npm install --prefix /usr/local/OpenCC.henry.wang git+https://github.com/HenryQW/OpenCC.henry.wang.git \
+&& sed -i 's/env.PORT/env.OPENCC_PORT/' /usr/local/OpenCC.henry.wang/node_modules/opencc.henry.wang/bin/www \
+&& sed -i 's/3000/4000/' /usr/local/OpenCC.henry.wang/node_modules/opencc.henry.wang/bin/www
+
+
+FROM ghcr.io/gshang2017/postgres:latest
+
+ARG S6_VER=3.2.0.2
+ARG TTRSS_VER=25.02-532570ca
+ARG GIT_COMMIT_SHA=532570ca17f1120a4bfc07195080e5e6a3c469fd
+
+ENV UID=1000
+ENV GID=1000
+ENV POSTGRES_DB=ttrss
+ENV POSTGRES_USER=ttrss
+ENV POSTGRES_PASSWORD=ttrss
+ENV TTRSS_DB_NAME=ttrss
+ENV TTRSS_DB_USER=ttrss
+ENV TTRSS_DB_PASS=ttrss
+ENV TTRSS_DB_TYPE=pgsql
+ENV TTRSS_DB_PORT=5432
+ENV TTRSS_DB_HOST=0.0.0.0
+ENV TTRSS_SELF_URL_PATH=http://localhost:80/
+ENV TTRSS_PHP_EXECUTABLE=/usr/bin/php83
+ENV TTRSS_PLUGINS=auth_internal,fever,mercury_fulltext,af_readability
+ENV SCRIPT_ROOT=/usr/local/tt-rss/app
+ENV TZ=Asia/Shanghai
+ENV TTRSS_ALLOW_PORTS=80,443
+ENV TTRSS_UPDATE_AUTO=true
+ENV TTRSS_CADDY_PORT=80
+ENV ENABLE_MERCURY=true
+ENV MERCURY_PORT=3000
+ENV ENABLE_OPENCC=false
+ENV OPENCC_PORT=4000
+ENV PGPORT=5432
+ENV PHP_LISTEN_PORT=9000
+ENV POSTGRES_DB_DUMP=false
+ENV POSTGRES_DB_RESTORE=false
+ENV S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0
+
+COPY --chmod=755 root /
+COPY --from=mercury-parser-api-build --chmod=755 /usr/local/mercury-parser-api /usr/local/mercury-parser-api
+COPY --from=mercury-parser-api-build --chmod=755 /usr/local/OpenCC.henry.wang /usr/local/OpenCC.henry.wang
+COPY --from=mercury-parser-api-build --chmod=755 /usr/local/bin/node /usr/local/bin/node
+
+# install php tt-rss caddy
+RUN apk add --no-cache bash shadow tzdata git ca-certificates caddy dumb-init postgresql-client musl-locales \
+						php83 php83-fpm php83-phar php83-sockets php83-pecl-apcu php83-pdo php83-gd php83-pgsql php83-pdo_pgsql php83-xmlwriter php83-opcache \
+						php83-mbstring php83-intl php83-xml php83-curl php83-simplexml php83-session php83-tokenizer php83-dom php83-fileinfo php83-ctype \
+						php83-json php83-iconv php83-pcntl php83-posix php83-zip php83-exif php83-openssl php83-pecl-xdebug python3 \
+&& apk add --no-cache --virtual ttrssdep clang15 llvm15 build-base automake autoconf libtool \
+# install s6-overlay
+&& if [ "$(uname -m)" = "x86_64" ];then s6_arch=x86_64;elif [ "$(uname -m)" = "aarch64" ];then s6_arch=aarch64;elif [ "$(uname -m)" = "armv7l" ];then s6_arch=arm; fi \
+&& wget -P /tmp https://github.com/just-containers/s6-overlay/releases/download/v${S6_VER}/s6-overlay-noarch.tar.xz \
+&& tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
+&& wget -P /tmp https://github.com/just-containers/s6-overlay/releases/download/v${S6_VER}/s6-overlay-${s6_arch}.tar.xz \
+&& tar -C / -Jxpf /tmp/s6-overlay-${s6_arch}.tar.xz \
+&& wget -P /tmp https://github.com/just-containers/s6-overlay/releases/download/v${S6_VER}/s6-overlay-symlinks-noarch.tar.xz \
+&& tar -C / -Jxpf /tmp/s6-overlay-symlinks-noarch.tar.xz \
+&& wget -P /tmp https://github.com/just-containers/s6-overlay/releases/download/v${S6_VER}/s6-overlay-symlinks-arch.tar.xz \
+&& tar -C / -Jxpf /tmp/s6-overlay-symlinks-arch.tar.xz \
 # install zhparser
-&&  wget http://www.xunsearch.com/scws/down/scws-1.2.3.tar.bz2   \
-&&  tar -xf scws-1.2.3.tar.bz2   \
-&&  cd scws-1.2.3   \
-&&  ./configure   \
-&&  make install   \
-&&  git clone https://github.com/amutu/zhparser.git   \
-&&  cd zhparser   \
-&&  make install   \
+&& git clone --depth 1 https://github.com/hightman/scws.git \
+&& cd scws \
+&& touch README;aclocal;autoconf;autoheader;libtoolize;automake --add-missing \
+&& ./configure \
+&& make install -j $(nproc) \
+&& git clone --depth 1 https://github.com/amutu/zhparser.git \
+&& cd zhparser \
+&& make install -j $(nproc) \
 #create ttrss user
-&&  useradd -u 1000 -U -d /config -s /bin/false ttrss   \
-&&  usermod -G users ttrss   \
+&& useradd -u 1000 -U -d /config -s /bin/false ttrss \
+&& usermod -G users ttrss \
 # php
-&&  sed -i.bak 's/\(memory_limit =\) 128M/\1 256M/' /etc/php8/php.ini   \
-&&  sed -i.bak 's/;clear_env = .*/clear_env = no/i' /etc/php8/php-fpm.d/www.conf   \
+&& sed -i 's/\(memory_limit =\) 128M/\1 256M/' /etc/php83/php.ini \
+&& sed -i -e 's/;\(clear_env\) = .*/\1 = no/i' /etc/php83/php-fpm.d/www.conf \
+&& sed -i -e 's/^\(user\|group\) = .*/\1 = postgres/i' /etc/php83/php-fpm.d/www.conf \
+&& sed -i -e 's/;\(php_admin_value\[error_log\]\) = .*/\1 = \/var\/log\/php83\/error.log/' /etc/php83/php-fpm.d/www.conf \
+&& sed -i -e 's/;\(php_admin_flag\[log_errors\]\) = .*/\1 = on/' /etc/php83/php-fpm.d/www.conf \
+# reset ttrss
+&& git clone --depth 50 https://git.tt-rss.org/fox/tt-rss.git /usr/local/tt-rss/app \
+&& cd /usr/local/tt-rss/app \
+&& git reset --hard ${GIT_COMMIT_SHA} \
 # install  plugins
-&&  mkdir -p  /usr/local/tt-rss/defaults \
-&&  mv /usr/local/tt-rss/cache /usr/local/tt-rss/defaults/cache \
-&&  mv /usr/local/tt-rss/feed-icons /usr/local/tt-rss/defaults/feed-icons \
-&&  mv /usr/local/tt-rss/lock /usr/local/tt-rss/defaults/lock \
-&&  mv /usr/local/tt-rss/plugins.local /usr/local/tt-rss/defaults/plugins.local \
-&&  mv /usr/local/tt-rss/templates.local /usr/local/tt-rss/defaults/templates.local \
-&&  mv /usr/local/tt-rss/themes.local /usr/local/tt-rss/defaults/themes.local \
+&& mkdir -p /usr/local/tt-rss/defaults \
+&& mv /usr/local/tt-rss/app/cache /usr/local/tt-rss/defaults/cache \
+&& mv /usr/local/tt-rss/app/feed-icons /usr/local/tt-rss/defaults/feed-icons \
+&& mv /usr/local/tt-rss/app/lock /usr/local/tt-rss/defaults/lock \
+&& mv /usr/local/tt-rss/app/plugins.local /usr/local/tt-rss/defaults/plugins.local \
+&& mv /usr/local/tt-rss/app/templates.local /usr/local/tt-rss/defaults/templates.local \
+&& mv /usr/local/tt-rss/app/themes.local /usr/local/tt-rss/defaults/themes.local \
 # install mercury_fulltext
-&&  git clone https://github.com/HenryQW/mercury_fulltext.git /usr/local/tt-rss/defaults/plugins.local/mercury_fulltext     \
+&& git clone --depth 1 https://github.com/HenryQW/mercury_fulltext.git /usr/local/tt-rss/defaults/plugins.local/mercury_fulltext \
 # install feediron
-&&  git clone https://github.com/feediron/ttrss_plugin-feediron.git  /usr/local/tt-rss/defaults/plugins.local/feediron      \
+&& git clone --depth 1 https://github.com/feediron/ttrss_plugin-feediron.git  /usr/local/tt-rss/defaults/plugins.local/feediron \
 # install fever
-&&  git clone https://github.com/DigitalDJ/tinytinyrss-fever-plugin /usr/local/tt-rss/defaults/plugins.local/fever     \
+&& git clone --depth 1 https://github.com/DigitalDJ/tinytinyrss-fever-plugin /usr/local/tt-rss/defaults/plugins.local/fever \
+# install af-readability
+&& git clone --depth 1 https://git.tt-rss.org/fox/ttrss-af-readability.git /usr/local/tt-rss/defaults/plugins.local/af_readability \
+# install opencc
+&& git clone --depth 1 https://github.com/HenryQW/ttrss_opencc.git /usr/local/tt-rss/defaults/plugins.local/opencc \
 # install themes
 # install tt-rss-feedly-theme
-&&  git clone  https://github.com/levito/tt-rss-feedly-theme.git /usr/local/tt-rss/defaults/themes.local/tt-rss-feedly-theme     \
-&&  cp -r /usr/local/tt-rss/defaults/themes.local/tt-rss-feedly-theme/feedly* /usr/local/tt-rss/defaults/themes.local     \
-#clean
-&&  apk del clang llvm11 build-base  \
-&&  rm -rf /var/cache/apk/*   \
-&&  rm /s6-overlay-${s6_arch}.tar.gz   \
-&&  rm -rf /scws*   \
-&&  rm -rf /usr/local/tt-rss/defaults/themes.local/tt-rss-feedly-theme  \
-&&  chmod a+x /usr/local/bin/initialize.sh
+&& git clone -b dist --depth 1 https://github.com/levito/tt-rss-feedly-theme.git /usr/local/tt-rss/defaults/themes.local/tt-rss-feedly-theme \
+# add safe.directory
+&& git config --global --add safe.directory /usr/local/tt-rss/app \
+&& git config --global --add safe.directory /config/plugins.local/mercury_fulltext \
+&& git config --global --add safe.directory /config/plugins.local/feediron \
+&& git config --global --add safe.directory /config/plugins.local/fever \
+&& git config --global --add safe.directory /config/plugins.local/opencc \
+&& git config --global --add safe.directory /usr/local/tt-rss/defaults/themes.local/tt-rss-feedly-theme \
+#clear
+&& apk del ttrssdep \
+&& rm -rf /var/cache/apk/* /tmp/* /scws*
 
-VOLUME  /config
-EXPOSE 80 3000 5432
+VOLUME /config
+EXPOSE 80 3000 4000 5432
 ENTRYPOINT [ "/init" ]

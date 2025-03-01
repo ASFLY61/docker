@@ -1,77 +1,50 @@
-FROM ubuntu:20.04  as compilinganki
+FROM rust:alpine3.21 AS builder
 
-ARG BAZELISK_VER=1.10.1
-ARG ANKI_VER=2.1.43
+ARG ANKI_VER=25.02
 
-RUN apt-get update -q -y \
-&&  ln -snf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-&&  echo Asia/Shanghai > /etc/timezone \
-&&  apt-get install -q -y curl wget apt-utils git rsync findutils curl gcc g++ rustc cargo nodejs python3 python3-pip python3-pyqt5 pyqt5-dev-tools python-is-python3 \
-#Build Anki
-&&  if [ "$(uname -m)" = "x86_64" ];then bazelisk_arch=amd64;elif [ "$(uname -m)" = "aarch64" ];then bazelisk_arch=arm64;fi \
-&&  curl -L https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VER}/bazelisk-linux-${bazelisk_arch} -o /usr/local/bin/bazel \
-&&  chmod +x /usr/local/bin/bazel \
-&&  mkdir /anki \
-&&  wget -P /anki https://github.com/ankitects/anki/archive/refs/tags/${ANKI_VER}.tar.gz \
-&&  tar -zxvf /anki/${ANKI_VER}.tar.gz --strip-components 1 -C /anki \
-&&  cd anki \
-&&  echo "build --action_env=PYTHON_SITE_PACKAGES=/usr/lib/python3/dist-packages" >> user.bazelrc \
-&&  bazel build -k -c opt dist \
-&&  cd /anki/bazel-bin \
-&&  tar -xvf dist.tar
+RUN apk update \
+&& apk add --no-cache build-base protobuf \
+&& cargo install --git https://github.com/ankitects/anki.git \
+    --tag ${ANKI_VER} \
+    --root /anki-server  \
+    anki-sync-server
 
-# docker anki-sync-server
+FROM alpine:3.21
 
-FROM ubuntu:20.04
+ARG S6_VER=3.2.0.2
 
-ARG ANKI__SYNC_SERVER=2.1.0
-ARG S6_VER=2.2.0.3
-
-ENV USER=
-ENV PASSWORD=
+ENV TZ=Asia/Shanghai
+ENV SYNC_USER1=user:pass
+ENV SYNC_BASE=/ankisyncdir
 ENV UID=1000
 ENV GID=1000
+ENV S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0
+ENV SYNC_PORT=8080
+ENV SYNC_HOST=0.0.0.0
+ENV MAX_SYNC_PAYLOAD_MEGS=100
 
-COPY root /
-COPY --from=compilinganki  /anki/bazel-bin/bazel-dist  /
+COPY --chmod=755 root /
+COPY --from=builder /anki-server/bin/anki-sync-server /usr/local/bin/anki-sync-server
 
-RUN apt-get update -q -y \
-&&  ln -snf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-&&  echo Asia/Shanghai > /etc/timezone \
-&&  apt-get install -q -y expect python3 python3-pip wget unzip nginx \
-&&  pip install --no-cache-dir /anki*.whl \
-#install anki-sync-server
-&&  wget -P /tmp https://github.com/ankicommunity/anki-sync-server/archive/refs/heads/develop.zip \
-&&  unzip -d /tmp /tmp/develop.zip \
-&&  cp -rf /tmp/anki-sync-server-develop/*  /usr/local/anki-sync-server \
-&&  sed -i 's/anki==*.*.*;/anki;/g'  /usr/local/anki-sync-server/src/requirements.txt \
-&&  pip install --no-cache-dir -r /usr/local/anki-sync-server/src/requirements.txt \
-#install s6-overlay
-&&  if [ "$(uname -m)" = "x86_64" ];then s6_arch=amd64;elif [ "$(uname -m)" = "aarch64" ];then s6_arch=aarch64;fi \
-&&  wget -P /tmp https://github.com/just-containers/s6-overlay/releases/download/v${S6_VER}/s6-overlay-${s6_arch}-installer \
-&&  chmod +x /tmp/s6-overlay-${s6_arch}-installer \
-&&  /tmp/s6-overlay-${s6_arch}-installer / \
-#defaults ankisyncd.conf
-&&  mkdir -p /usr/local/anki-sync-server/defaults \
-&&  mv /usr/local/anki-sync-server/src/ankisyncd.conf /usr/local/anki-sync-server/defaults/ankisyncd.conf \
-&&  sed -i 's/\.\//\/config\//g' /usr/local/anki-sync-server/defaults/ankisyncd.conf \
-&&  sed -i 's/27701/27702/g' /usr/local/anki-sync-server/defaults/ankisyncd.conf \
-#defaults nginx.conf
-&&  cp -rf /usr/local/anki-sync-server/docs/nginx.conf /usr/local/anki-sync-server/defaults/nginx.conf \
-&&  sed -i 's/2048m/0/g' /usr/local/anki-sync-server/defaults/nginx.conf \
-&&  sed -i 's/default;/localhost;/g' /usr/local/anki-sync-server/defaults/nginx.conf \
-#ankisyncd路径
-&&  echo "/usr/local/anki-sync-server/src/" >  /usr/local/lib/python3.8/dist-packages/ankisyncd.pth \
-#
-&&  chmod a+x /usr/local/anki-sync-server/useradd.sh \
+RUN apk update \
+&& apk add --no-cache wget xz bash shadow tzdata \
+# install s6-overlay
+&& if [ "$(uname -m)" = "x86_64" ];then s6_arch=x86_64;elif [ "$(uname -m)" = "aarch64" ];then s6_arch=aarch64;elif [ "$(uname -m)" = "armv7l" ];then s6_arch=arm; fi \
+&& wget -P /tmp https://github.com/just-containers/s6-overlay/releases/download/v${S6_VER}/s6-overlay-noarch.tar.xz \
+&& tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
+&& wget -P /tmp https://github.com/just-containers/s6-overlay/releases/download/v${S6_VER}/s6-overlay-${s6_arch}.tar.xz \
+&& tar -C / -Jxpf /tmp/s6-overlay-${s6_arch}.tar.xz \
+&& wget -P /tmp https://github.com/just-containers/s6-overlay/releases/download/v${S6_VER}/s6-overlay-symlinks-noarch.tar.xz \
+&& tar -C / -Jxpf /tmp/s6-overlay-symlinks-noarch.tar.xz \
+&& wget -P /tmp https://github.com/just-containers/s6-overlay/releases/download/v${S6_VER}/s6-overlay-symlinks-arch.tar.xz \
+&& tar -C / -Jxpf /tmp/s6-overlay-symlinks-arch.tar.xz \
 #create ankisync user
-&&  useradd -u 1000 -U -d /config -s /bin/false   ankisync   \
-&&  usermod -G users ankisync   \
-#clear
-&&  apt-get clean \
-&&  rm -rf /*.whl \
-&&  rm -rf /tmp/*
+&& mkdir /ankisyncdir \
+&& useradd -u 1000 -U -d /ankisyncdir -s /bin/false ankisync \
+&& usermod -G users ankisync \
+#
+&& rm -rf /var/cache/apk/* /tmp/*
 
-VOLUME  /config
-EXPOSE 27701
+VOLUME /ankisyncdir
+EXPOSE 8080
 ENTRYPOINT [ "/init" ]
